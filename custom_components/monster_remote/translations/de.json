@@ -1,0 +1,23 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Dieser Gym Monster ist bereits eingerichtet."
+    },
+    "error": {
+      "cannot_connect": "Monster Helper ist nicht erreichbar.",
+      "invalid_auth": "Das Helper-Secret ist nicht korrekt.",
+      "premium_required": "Auf diesem Gym Monster wird Monster Remote Premium benötigt."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "host": "IP-Adresse des Gym Monsters",
+          "port": "Helper-Port",
+          "secret": "Helper-Secret"
+        },
+        "description": "Verbinde Home Assistant direkt mit Monster Remote auf deinem Gym Monster.",
+        "title": "Gym Monster verbinden"
+      }
+    }
+  }
+}
