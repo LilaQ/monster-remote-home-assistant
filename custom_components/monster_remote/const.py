@@ -16,3 +16,4 @@ PLATFORMS: list[Platform] = [
 ]
 
 EVENT_MONSTER_REMOTE = "monster_remote_event"
+EVENT_MONSTER_REMOTE_ACTIVITY = "monster_remote_activity"

@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import MonsterRemoteCoordinator
 from .entity import MonsterRemoteEntity
-from .helpers import as_dict, resistance_event, retained, rounded
+from .helpers import as_dict, load_state, resistance_event, retained, rounded
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -97,6 +97,9 @@ class MonsterRemoteNumber(MonsterRemoteEntity, NumberEntity):
         """Return the current matching value."""
         state = retained(self.coordinator.data or {})
         if self.entity_description.key == "target_weight":
+            snapshot = load_state(self.coordinator.data or {})
+            if snapshot:
+                return rounded(snapshot.get("weight"))
             snapshot = as_dict(state.get("live_resistance_kg"))
             event = as_dict(state.get("live_resistance"))
             if (
@@ -121,8 +124,13 @@ class MonsterRemoteNumber(MonsterRemoteEntity, NumberEntity):
             return float(self.entity_description.native_max_value)
         state = retained(self.coordinator.data or {})
         capability = as_dict(state.get("weight_capability"))
+        normalized = load_state(self.coordinator.data or {})
         resistance = as_dict(state.get("live_resistance_kg"))
-        value = capability.get("max") or resistance.get("maxKg")
+        value = (
+            normalized.get("maximum")
+            or capability.get("max")
+            or resistance.get("maxKg")
+        )
         return float(value) if isinstance(value, (int, float)) and value > 0 else 100.0
 
     async def async_set_native_value(self, value: float) -> None:

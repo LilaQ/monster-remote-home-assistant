@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime, timezone
 from typing import Any
 
 TRAINING_SCREENS = ("free_training", "course_player")
@@ -53,13 +54,40 @@ def retained(data: dict[str, Any]) -> dict[str, Any]:
     return as_dict(data.get("state"))
 
 
+def session_state(data: dict[str, Any]) -> dict[str, Any]:
+    """Return the normalized session snapshot."""
+    return as_dict(retained(data).get("session_state"))
+
+
+def load_state(data: dict[str, Any]) -> dict[str, Any]:
+    """Return the normalized load snapshot."""
+    return as_dict(retained(data).get("load_state"))
+
+
+def session_metrics(data: dict[str, Any]) -> dict[str, Any]:
+    """Return normalized current-session counters."""
+    return as_dict(retained(data).get("session_metrics"))
+
+
+def timestamp(value: Any) -> datetime | None:
+    """Convert a Unix millisecond timestamp to a UTC datetime."""
+    parsed = number(value)
+    if parsed is None or parsed <= 0:
+        return None
+    return datetime.fromtimestamp(parsed / 1000.0, tz=timezone.utc)
+
+
 def current_screen(data: dict[str, Any]) -> str:
     """Return the current Speediance route."""
-    return str(retained(data).get("current_screen", "") or "")
+    normalized = session_state(data).get("screen")
+    return str(normalized or retained(data).get("current_screen", "") or "")
 
 
 def workout_active(data: dict[str, Any]) -> bool:
     """Return whether a supported workout screen is active."""
+    normalized = session_state(data)
+    if "active" in normalized:
+        return bool(normalized.get("active"))
     screen = current_screen(data)
     return any(name in screen for name in TRAINING_SCREENS)
 
@@ -84,6 +112,9 @@ def current_action(data: dict[str, Any]) -> dict[str, Any]:
 
 def exercise_name(data: dict[str, Any]) -> str | None:
     """Return the current exercise title."""
+    normalized = session_state(data).get("exercise")
+    if normalized not in (None, ""):
+        return str(normalized)
     value = nested_value(
         current_action(data),
         ("title", "actionName", "name"),

@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import MonsterRemoteCoordinator
 from .entity import MonsterRemoteEntity
-from .helpers import as_dict, retained, workout_active
+from .helpers import as_dict, retained, session_state, workout_active
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -45,7 +45,8 @@ BINARY_SENSORS = (
         name="Rest active",
         icon="mdi:timer-pause",
         value_fn=lambda data: bool(
-            as_dict(retained(data).get("rest_state")).get("active")
+            session_state(data).get("state") == "resting"
+            or as_dict(retained(data).get("rest_state")).get("active")
         ),
     ),
     MonsterBinaryDescription(
@@ -53,7 +54,8 @@ BINARY_SENSORS = (
         name="Workout paused",
         icon="mdi:pause-circle",
         value_fn=lambda data: bool(
-            as_dict(retained(data).get("playback_state")).get("paused")
+            session_state(data).get("paused")
+            or as_dict(retained(data).get("playback_state")).get("paused")
         ),
     ),
 )

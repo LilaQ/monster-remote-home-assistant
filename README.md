@@ -11,13 +11,15 @@ needs cloud credentials.
 - Local push updates over Server-Sent Events
 - Automatic reconnect with a low-frequency snapshot fallback
 - Current exercise, set, weight, resistance, heart rate and rowing telemetry
+- Session status, timestamps, reps, worked sets and volume
+- Helper, Speediance and offset-profile compatibility diagnostics
 - Native controls for weight, resistance, modes, rest and workout navigation
-- A `monster_remote_event` event for advanced automations
+- Raw `monster_remote_event` and semantic `monster_remote_activity` events
 
 ## Requirements
 
 - Monster Remote Premium
-- Monster Helper **2.01.46 or newer**
+- Monster Helper **2.01.48 or newer**
 - Home Assistant and Monster Remote on the same local network
 
 ## Installation
@@ -71,6 +73,41 @@ automation:
         data:
           media_player_entity_id: media_player.gym
           message: "Next exercise: {{ trigger.to_state.state }}"
+```
+
+## Session timers
+
+`sensor.session_started` and `sensor.rest_started` are timestamp sensors. Home
+Assistant can calculate elapsed time locally from them, so Monster Helper does
+not need to send a network update every second.
+
+## Semantic activity events
+
+Listen for `monster_remote_activity` and filter its `event_type`. Current event
+types are:
+
+- `session_started` / `session_finished`
+- `exercise_changed`
+- `rep_completed` / `set_completed`
+- `rest_started` / `rest_finished`
+- `workout_paused` / `workout_resumed`
+
+Example:
+
+```yaml
+automation:
+  - alias: Monster Remote set completed
+    triggers:
+      - trigger: event
+        event_type: monster_remote_activity
+        event_data:
+          event_type: set_completed
+    actions:
+      - action: light.turn_on
+        target:
+          entity_id: light.gym
+        data:
+          brightness_pct: 35
 ```
 
 ## Safety

@@ -6,7 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -19,10 +23,14 @@ from .helpers import (
     current_screen,
     exercise_name,
     integer,
+    load_state,
     nested_value,
     resistance_event,
     retained,
     rounded,
+    session_metrics,
+    session_state,
+    timestamp,
 )
 
 
@@ -31,6 +39,8 @@ class MonsterSensorDescription(SensorEntityDescription):
     """Describe a Monster Remote sensor."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+    unit_fn: Callable[[dict[str, Any]], str | None] | None = None
+    attributes_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 def _progress(data):
@@ -42,6 +52,12 @@ def _rowing(data):
 
 
 def _weight(data):
+    normalized = load_state(data)
+    if normalized:
+        return {
+            "kg": normalized.get("weight"),
+            "maxKg": normalized.get("maximum"),
+        }
     state = retained(data)
     snapshot = as_dict(state.get("live_resistance_kg"))
     event = as_dict(state.get("live_resistance"))
@@ -52,6 +68,26 @@ def _weight(data):
         if event.get("max") is not None:
             snapshot["maxKg"] = event["max"]
     return snapshot
+
+
+def _weight_unit(data: dict[str, Any]) -> str:
+    unit = (
+        load_state(data).get("unit")
+        or retained(data).get("weight_unit")
+        or (data.get("health") or {}).get("weightUnit")
+    )
+    return "lb" if unit == "lbs" else "kg"
+
+
+def _health(data: dict[str, Any]) -> dict[str, Any]:
+    value = data.get("health")
+    return value if isinstance(value, dict) else {}
+
+
+def _compatibility(data: dict[str, Any]) -> dict[str, Any]:
+    health = _health(data)
+    value = health.get("speedianceCompatibility")
+    return value if isinstance(value, dict) else {}
 
 
 SENSORS = (
@@ -71,36 +107,56 @@ SENSORS = (
         key="exercise_index",
         name="Exercise index",
         icon="mdi:format-list-numbered",
-        value_fn=lambda data: integer(_progress(data).get("current")),
+        value_fn=lambda data: integer(
+            session_state(data).get("exerciseIndex")
+            or _progress(data).get("current")
+        ),
     ),
     MonsterSensorDescription(
         key="exercise_total",
         name="Exercise total",
         icon="mdi:format-list-numbered",
-        value_fn=lambda data: integer(_progress(data).get("total")),
+        value_fn=lambda data: integer(
+            session_state(data).get("exerciseTotal")
+            or _progress(data).get("total")
+        ),
     ),
     MonsterSensorDescription(
         key="set_index",
         name="Set",
         icon="mdi:counter",
-        value_fn=lambda data: (
+        value_fn=lambda data: integer(
+            session_state(data).get("setIndex")
+        ) or (
             (integer(as_dict(retained(data).get("live_rep_index")).get("repIndex")) or 0) + 1
             if as_dict(retained(data).get("live_rep_index"))
             else None
         ),
     ),
     MonsterSensorDescription(
+        key="current_reps",
+        name="Current reps",
+        icon="mdi:counter",
+        value_fn=lambda data: integer(session_state(data).get("currentReps")),
+    ),
+    MonsterSensorDescription(
+        key="target_reps",
+        name="Target reps",
+        icon="mdi:target",
+        value_fn=lambda data: integer(session_state(data).get("targetReps")),
+    ),
+    MonsterSensorDescription(
         key="weight",
         name="Weight",
         icon="mdi:weight-kilogram",
-        native_unit_of_measurement="kg",
+        unit_fn=_weight_unit,
         value_fn=lambda data: rounded(_weight(data).get("kg")),
     ),
     MonsterSensorDescription(
         key="maximum_weight",
         name="Maximum weight",
         icon="mdi:weight-kilogram",
-        native_unit_of_measurement="kg",
+        unit_fn=_weight_unit,
         value_fn=lambda data: rounded(
             _weight(data).get("maxKg")
             or as_dict(retained(data).get("weight_capability")).get("max")
@@ -110,7 +166,7 @@ SENSORS = (
         key="extra_weight",
         name="Extra weight",
         icon="mdi:weight-plus",
-        native_unit_of_measurement="kg",
+        unit_fn=_weight_unit,
         value_fn=lambda data: rounded(resistance_event(data, "extraKg").get("value")),
     ),
     MonsterSensorDescription(
@@ -164,14 +220,97 @@ SENSORS = (
         key="weight_unit",
         name="Weight unit",
         icon="mdi:ruler",
-        value_fn=lambda data: retained(data).get("weight_unit")
-        or (data.get("health") or {}).get("weightUnit"),
+        value_fn=lambda data: load_state(data).get("unit")
+        or retained(data).get("weight_unit")
+        or _health(data).get("weightUnit"),
     ),
     MonsterSensorDescription(
         key="accessories",
         name="Accessories",
         icon="mdi:dumbbell",
         value_fn=lambda data: nested_value(current_action(data), ("accessories",)),
+    ),
+    MonsterSensorDescription(
+        key="session_status",
+        name="Session status",
+        icon="mdi:progress-clock",
+        value_fn=lambda data: session_state(data).get("state") or "idle",
+    ),
+    MonsterSensorDescription(
+        key="session_started",
+        name="Session started",
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda data: timestamp(session_state(data).get("startedAt")),
+    ),
+    MonsterSensorDescription(
+        key="rest_started",
+        name="Rest started",
+        icon="mdi:timer-pause",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda data: timestamp(session_state(data).get("restStartedAt")),
+    ),
+    MonsterSensorDescription(
+        key="session_reps",
+        name="Session reps",
+        icon="mdi:counter",
+        value_fn=lambda data: integer(session_metrics(data).get("reps")),
+    ),
+    MonsterSensorDescription(
+        key="session_sets",
+        name="Session sets",
+        icon="mdi:format-list-numbered",
+        value_fn=lambda data: integer(session_metrics(data).get("sets")),
+    ),
+    MonsterSensorDescription(
+        key="session_volume",
+        name="Session volume",
+        icon="mdi:weight",
+        unit_fn=_weight_unit,
+        value_fn=lambda data: rounded(session_metrics(data).get("volume")),
+    ),
+    MonsterSensorDescription(
+        key="exercise_reps",
+        name="Exercise reps",
+        icon="mdi:counter",
+        value_fn=lambda data: integer(session_metrics(data).get("exerciseReps")),
+    ),
+    MonsterSensorDescription(
+        key="exercise_volume",
+        name="Exercise volume",
+        icon="mdi:weight",
+        unit_fn=_weight_unit,
+        value_fn=lambda data: rounded(session_metrics(data).get("exerciseVolume")),
+    ),
+    MonsterSensorDescription(
+        key="helper_version",
+        name="Helper version",
+        icon="mdi:package-variant-closed",
+        value_fn=lambda data: _health(data).get("versionName"),
+    ),
+    MonsterSensorDescription(
+        key="speediance_version",
+        name="Speediance version",
+        icon="mdi:information-outline",
+        value_fn=lambda data: _compatibility(data).get("installedVersionName"),
+    ),
+    MonsterSensorDescription(
+        key="profile_revision",
+        name="Profile revision",
+        icon="mdi:file-code-outline",
+        value_fn=lambda data: integer(_compatibility(data).get("profileRevision")),
+    ),
+    MonsterSensorDescription(
+        key="compatibility",
+        name="Compatibility",
+        icon="mdi:shield-check-outline",
+        value_fn=lambda data: _compatibility(data).get("status"),
+        attributes_fn=lambda data: {
+            "reason": _compatibility(data).get("reason"),
+            "build_id": _compatibility(data).get("installedBuildId"),
+            "profile_source": _compatibility(data).get("profileSource"),
+            "supported_versions": _compatibility(data).get("supportedVersions", []),
+        },
     ),
 )
 
@@ -207,3 +346,23 @@ class MonsterRemoteSensor(MonsterRemoteEntity, SensorEntity):
     def native_value(self):
         """Return the current sensor value."""
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the live device unit where the entity is unit-aware."""
+        unit_fn = self.entity_description.unit_fn
+        if unit_fn is not None:
+            return unit_fn(self.coordinator.data or {})
+        return self.entity_description.native_unit_of_measurement
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return compact diagnostics without creating duplicate entities."""
+        attributes_fn = self.entity_description.attributes_fn
+        if attributes_fn is None:
+            return None
+        return {
+            key: value
+            for key, value in attributes_fn(self.coordinator.data or {}).items()
+            if value is not None
+        }

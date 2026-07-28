@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import MonsterRemoteCoordinator
 from .entity import MonsterRemoteEntity
-from .helpers import as_dict, retained
+from .helpers import as_dict, load_state, retained
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -109,11 +109,17 @@ class MonsterRemoteSelect(MonsterRemoteEntity, SelectEntity):
         """Return the retained or last selected option."""
         state = retained(self.coordinator.data or {})
         if self.entity_description.key == "mode":
-            mode = as_dict(state.get("live_resistance")).get("mode")
+            mode = (
+                load_state(self.coordinator.data or {}).get("mode")
+                or as_dict(state.get("live_resistance")).get("mode")
+            )
             if isinstance(mode, (int, float)):
                 return MODE_BY_VALUE.get(int(mode), self._selected)
         elif self.entity_description.key == "device":
-            device = as_dict(state.get("weight_capability")).get("device")
+            device = (
+                load_state(self.coordinator.data or {}).get("device")
+                or as_dict(state.get("weight_capability")).get("device")
+            )
             mapped = {
                 "single": "non-barbell",
                 "barbell": "barbell",

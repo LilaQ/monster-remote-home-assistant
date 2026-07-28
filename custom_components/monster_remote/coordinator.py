@@ -18,7 +18,11 @@ from .api import (
     MonsterRemoteAuthError,
     MonsterRemoteError,
 )
-from .const import DOMAIN, EVENT_MONSTER_REMOTE
+from .const import (
+    DOMAIN,
+    EVENT_MONSTER_REMOTE,
+    EVENT_MONSTER_REMOTE_ACTIVITY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -151,6 +155,7 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         current = dict(self.data or {})
         state = dict(current.get("state", {}))
+        previous_state = dict(state)
         state[key] = payload.get("value")
         current["state"] = state
         current["connected"] = True
@@ -167,3 +172,96 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "config_entry_id": self.config_entry.entry_id,
             },
         )
+        self._fire_semantic_events(
+            key=key,
+            previous=previous_state,
+            current=state,
+            timestamp=payload.get("timestamp"),
+        )
+
+    def _fire_semantic_events(
+        self,
+        *,
+        key: str,
+        previous: dict[str, Any],
+        current: dict[str, Any],
+        timestamp: Any,
+    ) -> None:
+        """Turn normalized snapshots into stable automation events."""
+        events: list[tuple[str, dict[str, Any]]] = []
+        if key == "session_state":
+            before = previous.get("session_state")
+            after = current.get("session_state")
+            before = before if isinstance(before, dict) else {}
+            after = after if isinstance(after, dict) else {}
+            was_active = bool(before.get("active"))
+            is_active = bool(after.get("active"))
+            if not was_active and is_active:
+                events.append(("session_started", {"session": after}))
+            elif was_active and not is_active:
+                events.append((
+                    "session_finished",
+                    {
+                        "session": before,
+                        "metrics": previous.get("session_metrics", {}),
+                    },
+                ))
+
+            before_exercise = (
+                before.get("exerciseId"),
+                before.get("exercise"),
+            )
+            after_exercise = (
+                after.get("exerciseId"),
+                after.get("exercise"),
+            )
+            if (
+                is_active
+                and after_exercise != before_exercise
+                and any(value not in (None, "") for value in after_exercise)
+            ):
+                events.append(("exercise_changed", {"session": after}))
+
+            before_status = before.get("state")
+            after_status = after.get("state")
+            if before_status != "resting" and after_status == "resting":
+                events.append(("set_completed", {"session": after}))
+                events.append(("rest_started", {"session": after}))
+            elif before_status == "resting" and after_status != "resting":
+                events.append(("rest_finished", {"session": after}))
+            if not bool(before.get("paused")) and bool(after.get("paused")):
+                events.append(("workout_paused", {"session": after}))
+            elif bool(before.get("paused")) and not bool(after.get("paused")):
+                events.append(("workout_resumed", {"session": after}))
+
+        elif key == "session_metrics":
+            before = previous.get("session_metrics")
+            after = current.get("session_metrics")
+            before = before if isinstance(before, dict) else {}
+            after = after if isinstance(after, dict) else {}
+            old_reps = int(before.get("reps") or 0)
+            new_reps = int(after.get("reps") or 0)
+            if new_reps > old_reps:
+                events.append((
+                    "rep_completed",
+                    {
+                        "metrics": after,
+                        "count": new_reps - old_reps,
+                        "session": current.get("session_state", {}),
+                    },
+                ))
+
+        common = {
+            "timestamp": timestamp,
+            "host": self.api.host,
+            "config_entry_id": self.config_entry.entry_id,
+        }
+        for event_type, detail in events:
+            self.hass.bus.async_fire(
+                EVENT_MONSTER_REMOTE_ACTIVITY,
+                {
+                    "event_type": event_type,
+                    **common,
+                    **detail,
+                },
+            )
