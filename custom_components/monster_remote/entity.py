@@ -12,7 +12,9 @@ from .coordinator import MonsterRemoteCoordinator
 class MonsterRemoteEntity(CoordinatorEntity[MonsterRemoteCoordinator]):
     """Common Monster Remote entity."""
 
-    _attr_has_entity_name = True
+    # Keep concise entity/button names such as "Weight on". Home Assistant
+    # otherwise prepends the device name to every single entity.
+    _attr_has_entity_name = False
 
     def __init__(
         self,
@@ -25,8 +27,8 @@ class MonsterRemoteEntity(CoordinatorEntity[MonsterRemoteCoordinator]):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.api.host)},
             manufacturer="Speediance",
-            name="Gym Monster",
-            model="Gym Monster with Monster Remote",
+            name="Monster Remote",
+            model="Monster Remote",
             sw_version=str(
                 (coordinator.data or {})
                 .get("health", {})

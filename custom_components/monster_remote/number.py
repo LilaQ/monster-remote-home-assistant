@@ -90,6 +90,7 @@ class MonsterRemoteNumber(MonsterRemoteEntity, NumberEntity):
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
+        self._attr_name = description.name
 
     @property
     def native_value(self):

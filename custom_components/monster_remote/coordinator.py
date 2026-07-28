@@ -37,7 +37,7 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             config_entry=entry,
             name=DOMAIN,
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(seconds=10),
             always_update=False,
         )
         self.api = api
@@ -51,7 +51,7 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.api.state(),
             )
         except MonsterRemoteAuthError as err:
-            raise UpdateFailed("Invalid Monster Helper secret") from err
+            raise UpdateFailed("Monster Helper authentication failed") from err
         except MonsterRemoteAccessError as err:
             raise UpdateFailed("Monster Remote Premium is required") from err
         except MonsterRemoteError as err:
@@ -89,10 +89,26 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         view: str = "auto",
         **arguments: str | int | float,
     ) -> dict[str, Any]:
-        """Run a command and schedule a retained-state refresh."""
+        """Run a command and refresh retained state without delaying success."""
         result = await self.api.command(action, view=view, **arguments)
-        self.async_schedule_refresh()
+        # Commands return after the native operation has completed and its
+        # retained snapshot has been published. Refresh immediately as a
+        # deterministic fallback in case the SSE frame is delayed by Wi-Fi.
+        # A refresh failure must not turn an already successful command into
+        # a failed Home Assistant button action.
+        self.hass.async_create_background_task(
+            self._refresh_after_command(),
+            f"Monster Remote refresh after {action}",
+        )
         return result
+
+    async def _refresh_after_command(self) -> None:
+        try:
+            await self.async_request_refresh()
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:  # Home Assistant coordinator owns specifics
+            _LOGGER.debug("Post-command state refresh failed: %s", err)
 
     async def _event_loop(self) -> None:
         delay = 1

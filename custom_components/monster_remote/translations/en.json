@@ -1,22 +1,21 @@
 {
   "config": {
     "abort": {
-      "already_configured": "This Gym Monster is already configured."
+      "already_configured": "This Monster Remote device is already configured."
     },
     "error": {
       "cannot_connect": "Unable to connect to Monster Helper.",
-      "invalid_auth": "The Helper secret is incorrect.",
-      "premium_required": "Monster Remote Premium is required on this Gym Monster."
+      "invalid_auth": "Monster Helper authentication failed.",
+      "premium_required": "Monster Remote Premium is required on this device."
     },
     "step": {
       "user": {
         "data": {
-          "host": "Gym Monster IP address",
-          "port": "Helper port",
-          "secret": "Helper secret"
+          "host": "Device IP address",
+          "port": "Helper port"
         },
-        "description": "Connect Home Assistant directly to Monster Remote on your Gym Monster.",
-        "title": "Connect Gym Monster"
+        "description": "Connect Home Assistant directly to Monster Remote.",
+        "title": "Connect Monster Remote"
       }
     }
   }

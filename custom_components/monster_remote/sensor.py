@@ -42,7 +42,16 @@ def _rowing(data):
 
 
 def _weight(data):
-    return as_dict(retained(data).get("live_resistance_kg"))
+    state = retained(data)
+    snapshot = as_dict(state.get("live_resistance_kg"))
+    event = as_dict(state.get("live_resistance"))
+    if event.get("kind") in ("mainKg", "speedKg"):
+        snapshot = dict(snapshot)
+        if event.get("value") is not None:
+            snapshot["kg"] = event["value"]
+        if event.get("max") is not None:
+            snapshot["maxKg"] = event["max"]
+    return snapshot
 
 
 SENSORS = (
@@ -153,7 +162,7 @@ SENSORS = (
     ),
     MonsterSensorDescription(
         key="weight_unit",
-        name="Gym Monster weight unit",
+        name="Weight unit",
         icon="mdi:ruler",
         value_fn=lambda data: retained(data).get("weight_unit")
         or (data.get("health") or {}).get("weightUnit"),
@@ -192,6 +201,7 @@ class MonsterRemoteSensor(MonsterRemoteEntity, SensorEntity):
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
+        self._attr_name = description.name
 
     @property
     def native_value(self):

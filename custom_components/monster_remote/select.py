@@ -101,6 +101,7 @@ class MonsterRemoteSelect(MonsterRemoteEntity, SelectEntity):
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
+        self._attr_name = description.name
         self._selected: str | None = None
 
     @property

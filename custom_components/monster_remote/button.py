@@ -97,6 +97,7 @@ class MonsterRemoteButton(MonsterRemoteEntity, ButtonEntity):
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
+        self._attr_name = description.name
 
     async def async_press(self) -> None:
         """Run the mapped command."""

@@ -84,6 +84,7 @@ class MonsterRemoteBinarySensor(MonsterRemoteEntity, BinarySensorEntity):
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
+        self._attr_name = description.name
 
     @property
     def is_on(self) -> bool:

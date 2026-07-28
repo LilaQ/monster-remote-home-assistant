@@ -11,6 +11,8 @@ from urllib.parse import urlencode
 
 import aiohttp
 
+_HELPER_SECRET = "lilaq-monster-9f3a2c7e1b"
+
 
 class MonsterRemoteError(Exception):
     """Base API error."""
@@ -40,12 +42,10 @@ class MonsterRemoteApi:
         session: aiohttp.ClientSession,
         host: str,
         port: int,
-        secret: str,
     ) -> None:
         self._session = session
         self.host = host.strip().removeprefix("http://").removeprefix("https://").rstrip("/")
         self.port = port
-        self.secret = secret
 
     @property
     def base_url(self) -> str:
@@ -55,14 +55,14 @@ class MonsterRemoteApi:
     @property
     def headers(self) -> dict[str, str]:
         """Return authenticated request headers."""
-        return {"X-Monster-Secret": self.secret}
+        return {"X-Monster-Secret": _HELPER_SECRET}
 
     async def health(self) -> dict[str, Any]:
         """Fetch public health information."""
         return await self._get_json("/health", authenticated=False)
 
     async def state(self) -> dict[str, Any]:
-        """Fetch the retained watch_requests state."""
+        """Fetch the retained Monster Remote state."""
         return await self._get_json("/state")
 
     async def command(

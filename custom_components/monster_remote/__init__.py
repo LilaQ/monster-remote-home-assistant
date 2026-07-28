@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import MonsterRemoteApi
-from .const import CONF_SECRET, PLATFORMS
+from .const import PLATFORMS
 from .coordinator import MonsterRemoteCoordinator
 
 
@@ -33,13 +33,28 @@ async def async_setup_entry(
         async_get_clientsession(hass),
         host=entry.data["host"],
         port=entry.data["port"],
-        secret=entry.data[CONF_SECRET],
     )
     coordinator = MonsterRemoteCoordinator(hass, entry, api)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = MonsterRemoteRuntimeData(api, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     coordinator.start_event_stream()
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: MonsterRemoteConfigEntry,
+) -> bool:
+    """Remove legacy setup fields that are now internal."""
+    if entry.version < 2:
+        data = dict(entry.data)
+        data.pop("secret", None)
+        hass.config_entries.async_update_entry(
+            entry,
+            data=data,
+            version=2,
+        )
     return True
 
 
