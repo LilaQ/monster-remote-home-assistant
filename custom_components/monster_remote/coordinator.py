@@ -129,9 +129,12 @@ class MonsterRemoteCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 asyncio.TimeoutError,
             ) as err:
                 _LOGGER.debug("Monster Remote event stream reconnect: %s", err)
-                current = dict(self.data or {})
-                current["connected"] = False
-                self.async_set_updated_data(current)
+                # The connectivity entity describes the Helper/device, not the
+                # optional SSE transport. Older Helper builds do not expose
+                # /events and transient Wi-Fi reconnects can also rebuild the
+                # stream while /health and /state remain fully reachable.
+                # Keep the last REST-derived connectivity state here; the
+                # coordinator poll is authoritative for actual disconnects.
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30)
 

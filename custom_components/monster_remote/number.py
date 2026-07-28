@@ -97,7 +97,14 @@ class MonsterRemoteNumber(MonsterRemoteEntity, NumberEntity):
         """Return the current matching value."""
         state = retained(self.coordinator.data or {})
         if self.entity_description.key == "target_weight":
-            return rounded(as_dict(state.get("live_resistance_kg")).get("kg"))
+            snapshot = as_dict(state.get("live_resistance_kg"))
+            event = as_dict(state.get("live_resistance"))
+            if (
+                event.get("kind") in ("mainKg", "speedKg")
+                and event.get("value") is not None
+            ):
+                return rounded(event.get("value"))
+            return rounded(snapshot.get("kg"))
         if self.entity_description.key == "target_extra_weight":
             return rounded(resistance_event(self.coordinator.data or {}, "extraKg").get("value"))
         rowing = as_dict(state.get("live_rowing_metrics"))
