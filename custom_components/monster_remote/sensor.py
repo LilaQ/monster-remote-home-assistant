@@ -283,6 +283,21 @@ SENSORS = (
         value_fn=lambda data: rounded(session_metrics(data).get("exerciseVolume")),
     ),
     MonsterSensorDescription(
+        key="rep_depth",
+        name="Rep depth",
+        icon="mdi:arrow-expand-vertical",
+        native_unit_of_measurement="cm",
+        value_fn=lambda data: rounded(
+            session_metrics(data).get("repDepthCentimeters")
+        ),
+    ),
+    MonsterSensorDescription(
+        key="rep_side",
+        name="Rep side",
+        icon="mdi:swap-horizontal",
+        value_fn=lambda data: session_metrics(data).get("repSide") or "unknown",
+    ),
+    MonsterSensorDescription(
         key="helper_version",
         name="Helper version",
         icon="mdi:package-variant-closed",

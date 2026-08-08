@@ -65,6 +65,15 @@ class MonsterRemoteApi:
         """Fetch the retained Monster Remote state."""
         return await self._get_json("/state")
 
+    async def start_mirror(self) -> dict[str, Any]:
+        """Start the Helper's local H.264 mirror source."""
+        return await self._get_json("/mirror/start")
+
+    @property
+    def mirror_stream_url(self) -> str:
+        """Return an authenticated elementary H.264 stream URL."""
+        return f"{self.base_url}/mirror/stream?secret={_HELPER_SECRET}"
+
     async def command(
         self,
         action: str,

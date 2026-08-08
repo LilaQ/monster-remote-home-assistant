@@ -13,6 +13,7 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.NUMBER,
     Platform.SELECT,
+    Platform.CAMERA,
 ]
 
 EVENT_MONSTER_REMOTE = "monster_remote_event"

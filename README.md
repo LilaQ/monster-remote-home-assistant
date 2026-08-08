@@ -11,6 +11,7 @@ needs cloud credentials.
 - Local push updates over Server-Sent Events
 - Automatic reconnect with a low-frequency snapshot fallback
 - Current exercise, set, weight, resistance, heart rate and rowing telemetry
+- Accepted-rep cable depth/side telemetry and a local H.264 mirror camera
 - Session status, timestamps, reps, worked sets and volume
 - Helper, Speediance and offset-profile compatibility diagnostics
 - Native controls for weight, resistance, modes, rest and workout navigation
@@ -19,7 +20,7 @@ needs cloud credentials.
 ## Requirements
 
 - Monster Remote Premium
-- Monster Helper **2.01.48 or newer**
+- Monster Helper **2.01.79 or newer** for rep depth and mirror camera
 - Home Assistant and Monster Remote on the same local network
 
 ## Installation
@@ -80,6 +81,13 @@ automation:
 `sensor.session_started` and `sensor.rest_started` are timestamp sensors. Home
 Assistant can calculate elapsed time locally from them, so Monster Helper does
 not need to send a network update every second.
+
+## GM mirror camera
+
+`camera.gym_monster_mirror` exposes Helper's authenticated local H.264 stream
+from `/mirror/stream`. It stays on the LAN and can be placed on a dashboard or
+used by Home Assistant's stream/ffmpeg path. Starting/stopping the mirror still
+uses the normal Monster Remote controls; the camera does not grant cloud access.
 
 ## Semantic activity events
 
